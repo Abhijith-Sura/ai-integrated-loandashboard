@@ -1,10 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { createClient } from '@supabase/supabase-js';
 import { ChatSheet } from '@/components/ChatSheet';
+
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -58,10 +61,16 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-12">
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">Loan Picks Dashboard</h1>
-          <p className="text-slate-600">Discover personalized loan products tailored for you</p>
-        </div>
+        <div className="mb-12 flex justify-between items-center">
+  <div>
+    <h1 className="text-4xl font-bold text-slate-900 mb-2">Loan Picks Dashboard</h1>
+    <p className="text-slate-600">Discover personalized loan products tailored for you</p>
+  </div>
+  <Link href="/products">
+    <Button variant="outline">View All Products →</Button>
+  </Link>
+</div>
+
 
         {products.length > 0 && (
           <div className="mb-12">
