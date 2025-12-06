@@ -14,6 +14,7 @@ const productQuerySchema = z.object({
   maxApr: z.string().optional(),
   minIncome: z.string().optional(),
   minCreditScore: z.string().optional(),
+  limit: z.string().optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -27,6 +28,7 @@ export async function GET(req: NextRequest) {
       maxApr: searchParams.get('maxApr') || undefined,
       minIncome: searchParams.get('minIncome') || undefined,
       minCreditScore: searchParams.get('minCreditScore') || undefined,
+      limit: searchParams.get('limit') || undefined,
     });
 
     // Build Supabase query
@@ -43,21 +45,50 @@ export async function GET(req: NextRequest) {
       supabaseQuery = supabaseQuery.lte('rate_apr', parseFloat(query.maxApr));
     }
     if (query.minIncome) {
-      supabaseQuery = supabaseQuery.gte('min_income', parseFloat(query.minIncome));
+      supabaseQuery = supabaseQuery.lte('min_income', parseFloat(query.minIncome));
     }
     if (query.minCreditScore) {
-      supabaseQuery = supabaseQuery.gte('min_credit_score', parseInt(query.minCreditScore));
+      supabaseQuery = supabaseQuery.lte('min_credit_score', parseInt(query.minCreditScore));
+    }
+
+    // Apply limit if provided
+    if (query.limit) {
+      supabaseQuery = supabaseQuery.limit(parseInt(query.limit));
     }
 
     const { data, error } = await supabaseQuery;
 
     if (error) throw error;
 
-    return NextResponse.json({ products: data });
+    // Transform data to match frontend interface
+    const transformedData = data?.map((item: any) => ({
+      id: item.id,
+      bank_name: item.bank || item.bank_name,
+      loan_type: item.product_type || item.loan_type || 'Personal Loan',
+      interest_rate: item.rate_apr || item.interest_rate || 0,
+      max_amount: item.max_amount || 0,
+      min_income: item.min_income || 0,
+      min_credit_score: item.min_credit_score || 0,
+      processing_fee: item.processing_fee || 0,
+      tenure_months: item.tenure_months || 12,
+      features: item.features || [],
+      badge: item.badge || null,
+    })) || [];
+
+    return NextResponse.json({ 
+      products: transformedData,
+      success: true 
+    });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-    return NextResponse.json({ error: 'Invalid query parameters', details: error.issues }, { status: 400 });
-}
-    return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ 
+        error: 'Invalid query parameters', 
+        details: error.issues 
+      }, { status: 400 });
+    }
+    console.error('API Error:', error);
+    return NextResponse.json({ 
+      error: error.message || 'Failed to fetch products' 
+    }, { status: 500 });
   }
 }

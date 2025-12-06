@@ -1,102 +1,172 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ArrowLeft, MessageCircle, Filter } from 'lucide-react';
 import { ChatSheet } from '@/components/ChatSheet';
-import Link from 'next/link';
 
-interface Product {
-  id: string;
-  name: string;
-  bank: string;
-  type: string;
-  rate_apr: number;
+interface Loan {
+  id: number;
+  bank_name: string;
+  loan_type: string;
+  interest_rate: number;
+  max_amount: number;
   min_income: number;
   min_credit_score: number;
-  tenure_min_months: number;
-  tenure_max_months: number;
-  processing_fee_pct: number;
-  prepayment_allowed: boolean;
-  disbursal_speed: string;
-  docs_level: string;
-  summary: string;
-  faq: any[];
+  processing_fee: number;
+  tenure_months: number;
+  features: string[];
+  badge?: string;
+  product_type?: string;
+  rate_apr?: number;
+  tenure_min_months?: number;
+  tenure_max_months?: number;
+  processing_fee_pct?: number;
+  prepayment_allowed?: boolean;
+  disbursal_speed?: string;
+  summary?: string;
 }
 
-export default function AllProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+export default function ProductsPage() {
+  const [mounted, setMounted] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [filteredLoans, setFilteredLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  const [selectedProduct, setSelectedProduct] = useState<Loan | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const router = useRouter();
+
   // Filter states
   const [bankSearch, setBankSearch] = useState('');
   const [minApr, setMinApr] = useState('');
   const [maxApr, setMaxApr] = useState('');
   const [minIncome, setMinIncome] = useState('');
-  const [minCreditScore, setMinCreditScore] = useState('');
-
-  const fetchProducts = async () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (bankSearch) params.append('bank', bankSearch);
-    if (minApr) params.append('minApr', minApr);
-    if (maxApr) params.append('maxApr', maxApr);
-    if (minIncome) params.append('minIncome', minIncome);
-    if (minCreditScore) params.append('minCreditScore', minCreditScore);
-
-    const response = await fetch(`/api/products?${params.toString()}`);
-    const data = await response.json();
-    setProducts(data.products || []);
-    setLoading(false);
-  };
+  const [minCredit, setMinCredit] = useState('');
 
   useEffect(() => {
-    fetchProducts();
+    setMounted(true);
   }, []);
 
-  const handleFilter = () => {
-    fetchProducts();
+  useEffect(() => {
+    if (!mounted) return;
+
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      router.push('/login');
+    } else {
+      setIsAuthenticated(true);
+      fetchAllLoans();
+    }
+  }, [mounted, router]);
+
+  const fetchAllLoans = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/products');
+      const data = await response.json();
+      
+      if (data.products && Array.isArray(data.products)) {
+        setLoans(data.products);
+        setFilteredLoans(data.products);
+      }
+    } catch (error) {
+      console.error('Error fetching loans:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleReset = () => {
+  const applyFilters = () => {
+    let filtered = [...loans];
+
+    if (bankSearch) {
+      filtered = filtered.filter(loan => 
+        loan.bank_name.toLowerCase().includes(bankSearch.toLowerCase())
+      );
+    }
+
+    if (minApr) {
+      filtered = filtered.filter(loan => 
+        (loan.interest_rate || loan.rate_apr || 0) >= parseFloat(minApr)
+      );
+    }
+
+    if (maxApr) {
+      filtered = filtered.filter(loan => 
+        (loan.interest_rate || loan.rate_apr || 0) <= parseFloat(maxApr)
+      );
+    }
+
+    if (minIncome) {
+      filtered = filtered.filter(loan => 
+        loan.min_income >= parseFloat(minIncome)
+      );
+    }
+
+    if (minCredit) {
+      filtered = filtered.filter(loan => 
+        loan.min_credit_score >= parseInt(minCredit)
+      );
+    }
+
+    setFilteredLoans(filtered);
+  };
+
+  const resetFilters = () => {
     setBankSearch('');
     setMinApr('');
     setMaxApr('');
     setMinIncome('');
-    setMinCreditScore('');
-    setTimeout(() => fetchProducts(), 100);
+    setMinCredit('');
+    setFilteredLoans(loans);
   };
 
-  const getBadges = (product: Product): string[] => {
-    const badges: string[] = [];
-    if (product.rate_apr < 8) badges.push('Low APR');
-    if (product.disbursal_speed === 'fast') badges.push('Fast Disbursal');
-    if (product.prepayment_allowed) badges.push('No Prepayment');
-    if (product.docs_level === 'minimal') badges.push('Low Docs');
-    if (product.processing_fee_pct === 0) badges.push('Zero Fee');
-    return badges.slice(0, 3);
+  const openChat = (loan: Loan) => {
+    setSelectedProduct(loan);
+    setChatOpen(true);
   };
+
+  if (!mounted || !isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-4xl font-bold text-slate-900 mb-2">All Loan Products</h1>
-            <p className="text-slate-600">Browse and filter all available loan options</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Button variant="ghost" onClick={() => router.push('/')} className="mb-2">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Button>
+              <h1 className="text-2xl font-bold text-gray-900">All Loan Products</h1>
+              <p className="text-sm text-gray-600">Browse and filter all available loan options</p>
+            </div>
           </div>
-          <Link href="/">
-            <Button variant="outline">← Back to Dashboard</Button>
-          </Link>
         </div>
+      </header>
 
-        {/* Filters */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Filters Card */}
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle>Filters</CardTitle>
+            <CardTitle className="flex items-center">
+              <Filter className="w-5 h-5 mr-2" />
+              Filters
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -140,74 +210,107 @@ export default function AllProductsPage() {
                 <Input
                   type="number"
                   placeholder="e.g., 650"
-                  value={minCreditScore}
-                  onChange={(e) => setMinCreditScore(e.target.value)}
+                  value={minCredit}
+                  onChange={(e) => setMinCredit(e.target.value)}
                 />
               </div>
             </div>
             <div className="flex gap-2 mt-4">
-              <Button onClick={handleFilter}>Apply Filters</Button>
-              <Button onClick={handleReset} variant="outline">Reset</Button>
+              <Button onClick={applyFilters}>Apply Filters</Button>
+              <Button onClick={resetFilters} variant="outline">Reset</Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Products Grid */}
+        {/* Results */}
         {loading ? (
-          <div className="text-center py-12">Loading products...</div>
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading products...</p>
+          </div>
         ) : (
           <>
-            <div className="mb-4 text-slate-600">
-              Showing {products.length} loan product{products.length !== 1 ? 's' : ''}
+            <div className="mb-4 text-gray-600">
+              Showing {filteredLoans.length} of {loans.length} loan products
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products.map((product) => (
-                <Card key={product.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <CardTitle className="text-xl">{product.name}</CardTitle>
-                    <CardDescription>{product.bank}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <p className="text-sm text-slate-600">APR</p>
-                      <p className="text-3xl font-bold text-blue-600">{product.rate_apr}%</p>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <p className="text-slate-600">Min Income</p>
-                        <p className="font-semibold">₹{(product.min_income / 100000).toFixed(1)}L</p>
-                      </div>
-                      <div>
-                        <p className="text-slate-600">Credit Score</p>
-                        <p className="font-semibold">{product.min_credit_score}+</p>
-                      </div>
-                      <div>
-                        <p className="text-slate-600">Tenure</p>
-                        <p className="font-semibold">{product.tenure_min_months}-{product.tenure_max_months}m</p>
-                      </div>
-                      <div>
-                        <p className="text-slate-600">Processing Fee</p>
-                        <p className="font-semibold">{product.processing_fee_pct}%</p>
-                      </div>
-                    </div>
 
-                    <p className="text-sm text-slate-700">{product.summary}</p>
+            {filteredLoans.length === 0 ? (
+              <Card className="p-12 text-center">
+                <p className="text-gray-600 text-lg mb-4">No products match your filters</p>
+                <Button onClick={resetFilters}>Clear Filters</Button>
+              </Card>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredLoans.map((loan) => (
+                  <Card key={loan.id} className="hover:shadow-lg transition-shadow">
+                    <CardHeader>
+                      <div className="flex items-center justify-between mb-2">
+                        {loan.badge && (
+                          <Badge className="bg-purple-600">{loan.badge}</Badge>
+                        )}
+                        <div className="text-right ml-auto">
+                          <div className="text-2xl font-bold text-gray-900">
+                            {loan.interest_rate || loan.rate_apr}%
+                          </div>
+                          <div className="text-xs text-gray-600">APR</div>
+                        </div>
+                      </div>
+                      <CardTitle className="text-lg">{loan.loan_type || loan.product_type}</CardTitle>
+                      <CardDescription>{loan.bank_name}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
+                        <div>
+                          <div className="text-gray-600">Max Amount</div>
+                          <div className="font-semibold">₹{(loan.max_amount / 100000).toFixed(0)}L</div>
+                        </div>
+                        <div>
+                          <div className="text-gray-600">Credit Score</div>
+                          <div className="font-semibold">{loan.min_credit_score}+</div>
+                        </div>
+                        <div>
+                          <div className="text-gray-600">Min Income</div>
+                          <div className="font-semibold">₹{(loan.min_income / 100000).toFixed(1)}L</div>
+                        </div>
+                        <div>
+                          <div className="text-gray-600">Tenure</div>
+                          <div className="font-semibold">{loan.tenure_months}m</div>
+                        </div>
+                      </div>
 
-                    <div className="flex flex-wrap gap-1">
-                      {getBadges(product).map((badge) => (
-                        <Badge key={badge} variant="secondary" className="text-xs">{badge}</Badge>
-                      ))}
-                    </div>
+                      {loan.features && loan.features.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {loan.features.slice(0, 3).map((feature, idx) => (
+                            <Badge key={idx} variant="outline" className="text-xs">{feature}</Badge>
+                          ))}
+                        </div>
+                      )}
 
-                    <ChatSheet product={product} />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => openChat(loan)}
+                      >
+                        <MessageCircle className="w-4 h-4 mr-2" />
+                        Ask About This Product
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </>
         )}
-      </div>
+      </main>
+
+      {/* Chat Sheet */}
+      {selectedProduct && (
+        <ChatSheet
+          open={chatOpen}
+          onOpenChange={setChatOpen}
+          product={selectedProduct}
+        />
+      )}
     </div>
   );
 }
