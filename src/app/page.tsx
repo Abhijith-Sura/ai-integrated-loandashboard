@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Sparkles, TrendingUp, Shield, Zap, LogOut, MessageCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { MessageCircle, TrendingUp, Clock, Shield, Sparkles, LogOut } from 'lucide-react';
 import { ChatSheet } from '@/components/ChatSheet';
 
 interface Loan {
@@ -30,12 +31,16 @@ interface Loan {
   summary?: string;
 }
 
-export default function DashboardPage() {
+export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userName, setUserName] = useState('');
-  const [loans, setLoans] = useState<Loan[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [userEmail, setUserEmail] = useState('');
+  const [income, setIncome] = useState('');
+  const [creditScore, setCreditScore] = useState('');
+  const [loanAmount, setLoanAmount] = useState('');
+  const [recommendations, setRecommendations] = useState<Loan[]>([]);
+  const [loading, setLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Loan | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const router = useRouter();
@@ -48,32 +53,16 @@ export default function DashboardPage() {
     if (!mounted) return;
 
     const token = localStorage.getItem('auth_token');
-    const name = localStorage.getItem('user_name');
-
     if (!token) {
       router.push('/login');
     } else {
       setIsAuthenticated(true);
-      setUserName(name || 'User');
-      fetchTopLoans();
+      const name = localStorage.getItem('user_name');
+      const email = localStorage.getItem('user_email');
+      if (name) setUserName(name);
+      if (email) setUserEmail(email);
     }
   }, [mounted, router]);
-
-  const fetchTopLoans = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/products?limit=5');
-      const data = await response.json();
-      
-      if (data.products && Array.isArray(data.products)) {
-        setLoans(data.products);
-      }
-    } catch (error) {
-      console.error('Error fetching loans:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleLogout = () => {
     localStorage.removeItem('auth_token');
@@ -82,159 +71,215 @@ export default function DashboardPage() {
     router.push('/login');
   };
 
+  const getRecommendations = async () => {
+    if (!income || !creditScore || !loanAmount) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          income: parseFloat(income),
+          creditScore: parseInt(creditScore),
+          loanAmount: parseFloat(loanAmount),
+        }),
+      });
+
+      const data = await response.json();
+      setRecommendations(data.recommendations || []);
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Failed to get recommendations');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const openChat = (loan: Loan) => {
     setSelectedProduct(loan);
     setChatOpen(true);
   };
 
-  const getBadgeIcon = (badge?: string) => {
-    switch (badge?.toLowerCase()) {
-      case 'best match':
-        return <Sparkles className="w-3 h-3" />;
-      case 'lowest apr':
-        return <TrendingUp className="w-3 h-3" />;
-      case 'fastest approval':
-        return <Zap className="w-3 h-3" />;
-      default:
-        return <Shield className="w-3 h-3" />;
-    }
-  };
-
   if (!mounted || !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      {/* Header */}
       <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Loan Picks Dashboard</h1>
-            <p className="text-sm text-gray-600">Discover personalized loan products tailored for you</p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">ClickPe Loan Dashboard</h1>
+              <p className="text-sm text-gray-600 mt-1">Welcome back, {userName}!</p>
+            </div>
+            <Button onClick={handleLogout} variant="outline">
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
           </div>
-          <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading loans...</p>
-          </div>
-        ) : loans.length === 0 ? (
-          <Card className="p-12 text-center">
-            <p className="text-gray-600 text-lg mb-4">No loan products available</p>
-            <Button onClick={() => router.push('/products')}>Browse All Products</Button>
+        {/* Quick Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+              <TrendingUp className="w-4 h-4 text-gray-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">150+</div>
+              <p className="text-xs text-gray-600">Loan options available</p>
+            </CardContent>
           </Card>
-        ) : (
-          <>
-            {/* Best Match Hero Card */}
-            {loans[0] && (
-              <Card className="mb-8 border-2 border-purple-500 shadow-lg bg-gradient-to-br from-purple-50 to-white">
-                <CardHeader>
-                  <div className="flex items-center justify-between mb-2">
-                    <Badge className="bg-purple-600">
-                      <Sparkles className="w-3 h-3 mr-1" />
-                      Best Match
-                    </Badge>
-                    <div className="text-right">
-                      <div className="text-3xl font-bold text-purple-600">{loans[0].interest_rate || loans[0].rate_apr}%</div>
-                      <div className="text-sm text-gray-600">APR</div>
-                    </div>
-                  </div>
-                  <CardTitle className="text-2xl">{loans[0].loan_type || loans[0].product_type}</CardTitle>
-                  <CardDescription className="text-base">{loans[0].bank_name}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-700 mb-4">
-                    {loans[0].summary || `Quick personal loans up to ₹${(loans[0].max_amount / 100000).toFixed(0)} lakhs with minimal documentation`}
-                  </p>
-                  
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <div className="text-sm text-gray-600">Min Income</div>
-                      <div className="font-semibold">₹{(loans[0].min_income / 100000).toFixed(1)}L</div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-gray-600">Credit Score</div>
-                      <div className="font-semibold">{loans[0].min_credit_score}+</div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-gray-600">Tenure</div>
-                      <div className="font-semibold">{loans[0].tenure_min_months || 6}-{loans[0].tenure_max_months || loans[0].tenure_months} months</div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-gray-600">Processing Fee</div>
-                      <div className="font-semibold">{loans[0].processing_fee || loans[0].processing_fee_pct}%</div>
-                    </div>
-                  </div>
 
-                  {loans[0].features && loans[0].features.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {loans[0].features.map((feature, idx) => (
-                        <Badge key={idx} variant="outline">{feature}</Badge>
-                      ))}
-                    </div>
-                  )}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Best Rate</CardTitle>
+              <Sparkles className="w-4 h-4 text-gray-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">6.5%</div>
+              <p className="text-xs text-gray-600">Starting APR</p>
+            </CardContent>
+          </Card>
 
-                  <Button 
-                    variant="outline" 
-                    className="w-full mb-2"
-                    onClick={() => openChat(loans[0])}
-                  >
-                    <MessageCircle className="w-4 h-4 mr-2" />
-                    Ask About This Product
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Quick Approval</CardTitle>
+              <Clock className="w-4 h-4 text-gray-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">24hrs</div>
+              <p className="text-xs text-gray-600">Fastest disbursal</p>
+            </CardContent>
+          </Card>
 
-            {/* Other Loans */}
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Your Top 5 Matches</h2>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Secure</CardTitle>
+              <Shield className="w-4 h-4 text-gray-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">100%</div>
+              <p className="text-xs text-gray-600">Data protection</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* AI Recommendation Form */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Sparkles className="w-5 h-5 mr-2 text-purple-600" />
+              AI-Powered Loan Recommendations
+            </CardTitle>
+            <CardDescription>
+              Get personalized loan suggestions based on your financial profile
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Annual Income (₹)</label>
+                <Input
+                  type="number"
+                  placeholder="e.g., 500000"
+                  value={income}
+                  onChange={(e) => setIncome(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Credit Score</label>
+                <Input
+                  type="number"
+                  placeholder="e.g., 750"
+                  value={creditScore}
+                  onChange={(e) => setCreditScore(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Desired Loan Amount (₹)</label>
+                <Input
+                  type="number"
+                  placeholder="e.g., 1000000"
+                  value={loanAmount}
+                  onChange={(e) => setLoanAmount(e.target.value)}
+                />
+              </div>
             </div>
+            <Button onClick={getRecommendations} disabled={loading} className="w-full md:w-auto">
+              {loading ? 'Getting Recommendations...' : 'Get AI Recommendations'}
+            </Button>
+          </CardContent>
+        </Card>
 
-            <div className="grid md:grid-cols-2 gap-6">
-              {loans.slice(1).map((loan) => (
-                <Card key={loan.id} className="hover:shadow-lg transition-shadow border-2 border-purple-200">
+        {/* Browse All Products */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Browse All Products</CardTitle>
+            <CardDescription>Explore our complete catalog of loan products</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => router.push('/products')} variant="outline" className="w-full">
+              View All Loan Products →
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Recommendations */}
+        {recommendations.length > 0 && (
+          <div>
+            <h2 className="text-2xl font-bold mb-4">Recommended for You</h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {recommendations.map((loan) => (
+                <Card key={loan.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader>
                     <div className="flex items-center justify-between mb-2">
                       {loan.badge && (
-                        <Badge variant="default" className="bg-purple-600">
-                          {getBadgeIcon(loan.badge)}
-                          <span className="ml-1">{loan.badge}</span>
-                        </Badge>
+                        <Badge className="bg-purple-600">{loan.badge}</Badge>
                       )}
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-gray-900">{loan.interest_rate || loan.rate_apr}%</div>
+                      <div className="text-right ml-auto">
+                        <div className="text-2xl font-bold text-gray-900">
+                          {loan.interest_rate || loan.rate_apr}%
+                        </div>
                         <div className="text-xs text-gray-600">APR</div>
                       </div>
                     </div>
-                    <CardTitle>{loan.loan_type || loan.product_type}</CardTitle>
+                    <CardTitle className="text-lg">{loan.loan_type || loan.product_type}</CardTitle>
                     <CardDescription>{loan.bank_name}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
                       <div>
-                        <div className="text-gray-600">Min Income</div>
-                        <div className="font-semibold">₹{(loan.min_income / 100000).toFixed(1)}L</div>
+                        <div className="text-gray-600">Max Amount</div>
+                        <div className="font-semibold">₹{(loan.max_amount / 100000).toFixed(0)}L</div>
                       </div>
                       <div>
                         <div className="text-gray-600">Credit Score</div>
                         <div className="font-semibold">{loan.min_credit_score}+</div>
                       </div>
+                      <div>
+                        <div className="text-gray-600">Min Income</div>
+                        <div className="font-semibold">₹{(loan.min_income / 100000).toFixed(1)}L</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-600">Tenure</div>
+                        <div className="font-semibold">{loan.tenure_months}m</div>
+                      </div>
                     </div>
+
                     {loan.features && loan.features.length > 0 && (
                       <div className="flex flex-wrap gap-1 mb-3">
                         {loan.features.slice(0, 3).map((feature, idx) => (
@@ -242,6 +287,7 @@ export default function DashboardPage() {
                         ))}
                       </div>
                     )}
+
                     <Button 
                       variant="outline" 
                       className="w-full"
@@ -254,17 +300,11 @@ export default function DashboardPage() {
                 </Card>
               ))}
             </div>
-
-            <div className="mt-8 text-center">
-              <Button onClick={() => router.push('/products')} size="lg">
-                View All Products
-              </Button>
-            </div>
-          </>
+          </div>
         )}
       </main>
 
-      {/* Product-Specific Chat */}
+      {/* Chat Sheet */}
       {selectedProduct && (
         <ChatSheet
           open={chatOpen}

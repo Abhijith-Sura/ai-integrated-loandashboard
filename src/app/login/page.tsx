@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [mounted, setMounted] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [isResetWithToken, setIsResetWithToken] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -17,14 +18,23 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [resetToken, setResetToken] = useState('');
   
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    const token = searchParams.get('reset_token');
+    if (token) {
+      setIsResetWithToken(true);
+      setResetToken(token);
+      setIsForgotPassword(true);
+      setIsLogin(false);
+    }
+  }, [searchParams]);
 
-  const handleForgotPassword = (e: React.FormEvent) => {
+  const handleForgotPasswordRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
@@ -36,36 +46,101 @@ export default function LoginPage() {
       return;
     }
 
+    const usersData = localStorage.getItem('registered_users');
+    const users = usersData ? JSON.parse(usersData) : [];
+
+    const userExists = users.find((u: any) => u.email === email);
+
+    if (!userExists) {
+      setSuccess('✅ If an account exists with this email, you will receive a password reset link shortly.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const token = btoa(JSON.stringify({
+        email,
+        timestamp: Date.now(),
+        expires: Date.now() + 15 * 60 * 1000
+      }));
+
+      const resetTokens = JSON.parse(localStorage.getItem('reset_tokens') || '[]');
+      resetTokens.push({ token, email, createdAt: Date.now() });
+      localStorage.setItem('reset_tokens', JSON.stringify(resetTokens));
+
+      const resetLink = `${window.location.origin}/login?reset_token=${token}`;
+
+      const response = await fetch('/api/send-reset-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, resetLink }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(`❌ Failed to send email: ${data.error}`);
+        setLoading(false);
+        return;
+      }
+
+      setSuccess(`✅ Email sent to ${email}!\n\n⚠️ CHECK YOUR SPAM FOLDER if you don't see it in your inbox.\n\nThe link expires in 15 minutes.`);
+      setEmail('');
+    } catch (error: any) {
+      console.error('Error:', error);
+      setError(`❌ Error: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPasswordWithToken = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setLoading(true);
+
     if (!newPassword || newPassword.length < 6) {
       setError('New password must be at least 6 characters');
       setLoading(false);
       return;
     }
 
-    const usersData = localStorage.getItem('registered_users');
-    const users = usersData ? JSON.parse(usersData) : [];
+    try {
+      const decodedToken = JSON.parse(atob(resetToken));
+      
+      if (decodedToken.expires < Date.now()) {
+        setError('❌ Reset link has expired. Please request a new one.');
+        setLoading(false);
+        return;
+      }
 
-    const userIndex = users.findIndex((u: any) => u.email === email);
+      const usersData = localStorage.getItem('registered_users');
+      const users = usersData ? JSON.parse(usersData) : [];
 
-    if (userIndex === -1) {
-      setError('Email not found. Please sign up instead.');
+      const userIndex = users.findIndex((u: any) => u.email === decodedToken.email);
+
+      if (userIndex === -1) {
+        setError('User not found');
+        setLoading(false);
+        return;
+      }
+
+      users[userIndex].password = newPassword;
+      localStorage.setItem('registered_users', JSON.stringify(users));
+
+      const resetTokens = JSON.parse(localStorage.getItem('reset_tokens') || '[]');
+      const filteredTokens = resetTokens.filter((t: any) => t.token !== resetToken);
+      localStorage.setItem('reset_tokens', JSON.stringify(filteredTokens));
+
+      setSuccess('✅ Password reset successfully! Redirecting to login...');
+      setTimeout(() => {
+        router.push('/login');
+      }, 2000);
+    } catch (err) {
+      setError('❌ Invalid or expired reset link');
       setLoading(false);
-      return;
     }
-
-    // Update password
-    users[userIndex].password = newPassword;
-    localStorage.setItem('registered_users', JSON.stringify(users));
-
-    setSuccess('✅ Password reset successfully! Please login with your new password.');
-    setTimeout(() => {
-      setIsForgotPassword(false);
-      setIsLogin(true);
-      setEmail('');
-      setNewPassword('');
-      setSuccess('');
-    }, 2000);
-    setLoading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,7 +184,7 @@ export default function LoginPage() {
         localStorage.setItem('user_email', user.email);
         localStorage.setItem('user_name', user.name);
 
-        router.push('/');
+        window.location.href = '/';
       } else {
         if (!name) {
           setError('Please enter your name');
@@ -151,29 +226,18 @@ export default function LoginPage() {
     );
   }
 
-  if (isForgotPassword) {
+  if (isForgotPassword && isResetWithToken) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-center">Reset Password</CardTitle>
+            <CardTitle className="text-2xl font-bold text-center">🔐 Reset Your Password</CardTitle>
             <CardDescription className="text-center">
-              Enter your email and new password
+              Enter your new password
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleForgotPassword} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Email</label>
-                <Input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-
+            <form onSubmit={handleResetPasswordWithToken} className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">New Password (min 6 chars)</label>
                 <Input
@@ -207,6 +271,63 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => {
+                  router.push('/login');
+                }}
+                className="text-blue-600 hover:underline font-semibold"
+              >
+                Back to Login
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isForgotPassword) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold text-center">📧 Forgot Password</CardTitle>
+            <CardDescription className="text-center">
+              Enter your email to receive a password reset link
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleForgotPasswordRequest} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Email Address</label>
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+
+              {error && (
+                <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md border border-red-200">
+                  {error}
+                </div>
+              )}
+
+              {success && (
+                <div className="text-sm text-green-600 bg-green-50 p-3 rounded-md border border-green-200 whitespace-pre-wrap">
+                  {success}
+                </div>
+              )}
+
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Sending...' : 'Send Reset Link'}
+              </Button>
+            </form>
+
+            <div className="mt-4 text-center text-sm">
+              <button
+                type="button"
+                onClick={() => {
                   setIsForgotPassword(false);
                   setError('');
                   setSuccess('');
@@ -215,6 +336,10 @@ export default function LoginPage() {
               >
                 Back to Login
               </button>
+            </div>
+
+            <div className="mt-4 p-3 bg-yellow-50 rounded text-xs text-yellow-900 border border-yellow-200">
+              <strong>🔐 Security:</strong> Password reset link will be sent to your email and expires in 15 minutes.
             </div>
           </CardContent>
         </Card>
@@ -275,7 +400,11 @@ export default function LoginPage() {
               <div className="text-right">
                 <button
                   type="button"
-                  onClick={() => setIsForgotPassword(true)}
+                  onClick={() => {
+                    setIsForgotPassword(true);
+                    setError('');
+                    setEmail('');
+                  }}
                   className="text-sm text-blue-600 hover:underline"
                 >
                   Forgot password?
