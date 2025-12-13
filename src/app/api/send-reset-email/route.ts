@@ -1,5 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,32 +9,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    // Create Supabase client
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    // Use Supabase's built-in password reset
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json(
+        { error: 'Email service not configured' },
+        { status: 500 }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${req.headers.get('origin') || 'http://localhost:3000'}/reset-password`,
     });
 
     if (error) {
-      console.error('Supabase reset error:', error);
-      throw error;
+      console.error('Supabase error:', error);
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
-
-    console.log('✅ Password reset email sent via Supabase to:', email);
 
     return NextResponse.json({ 
       success: true, 
-      message: 'Password reset email sent successfully. Check your inbox!' 
+      message: 'Password reset email sent successfully' 
     });
   } catch (error: any) {
-    console.error('Reset error:', error);
-    return NextResponse.json({ 
-      error: error.message || 'Failed to send reset email' 
-    }, { status: 500 });
+    console.error('Error:', error);
+    return NextResponse.json({ error: 'Failed to send reset email' }, { status: 500 });
   }
 }

@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-export default function LoginPage() {
+function LoginForm() {
   const [mounted, setMounted] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -46,34 +46,11 @@ export default function LoginPage() {
       return;
     }
 
-    const usersData = localStorage.getItem('registered_users');
-    const users = usersData ? JSON.parse(usersData) : [];
-
-    const userExists = users.find((u: any) => u.email === email);
-
-    if (!userExists) {
-      setSuccess('✅ If an account exists with this email, you will receive a password reset link shortly.');
-      setLoading(false);
-      return;
-    }
-
     try {
-      const token = btoa(JSON.stringify({
-        email,
-        timestamp: Date.now(),
-        expires: Date.now() + 15 * 60 * 1000
-      }));
-
-      const resetTokens = JSON.parse(localStorage.getItem('reset_tokens') || '[]');
-      resetTokens.push({ token, email, createdAt: Date.now() });
-      localStorage.setItem('reset_tokens', JSON.stringify(resetTokens));
-
-      const resetLink = `${window.location.origin}/login?reset_token=${token}`;
-
       const response = await fetch('/api/send-reset-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, resetLink }),
+        body: JSON.stringify({ email }),
       });
 
       const data = await response.json();
@@ -84,7 +61,7 @@ export default function LoginPage() {
         return;
       }
 
-      setSuccess(`✅ Email sent to ${email}!\n\n⚠️ CHECK YOUR SPAM FOLDER if you don't see it in your inbox.\n\nThe link expires in 15 minutes.`);
+      setSuccess(`✅ Password reset email sent to ${email}!\n\n⚠️ CHECK YOUR SPAM FOLDER if you don't see it.\n\nThe link expires in 1 hour.`);
       setEmail('');
     } catch (error: any) {
       console.error('Error:', error);
@@ -339,7 +316,7 @@ export default function LoginPage() {
             </div>
 
             <div className="mt-4 p-3 bg-yellow-50 rounded text-xs text-yellow-900 border border-yellow-200">
-              <strong>🔐 Security:</strong> Password reset link will be sent to your email and expires in 15 minutes.
+              <strong>🔐 Security:</strong> Password reset link will be sent to your email via Supabase and expires in 1 hour.
             </div>
           </CardContent>
         </Card>
@@ -449,5 +426,17 @@ export default function LoginPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
