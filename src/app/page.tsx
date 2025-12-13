@@ -39,7 +39,7 @@ export default function Home() {
   const [income, setIncome] = useState('');
   const [creditScore, setCreditScore] = useState('');
   const [loanAmount, setLoanAmount] = useState('');
-  const [recommendations, setRecommendations] = useState<Loan[]>([]);
+  const [aiRecommendations, setAiRecommendations] = useState(''); // ← CHANGED: string instead of array
   const [loading, setLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Loan | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
@@ -71,6 +71,7 @@ export default function Home() {
     router.push('/login');
   };
 
+  // ← FIXED FUNCTION
   const getRecommendations = async () => {
     if (!income || !creditScore || !loanAmount) {
       alert('Please fill in all fields');
@@ -78,8 +79,9 @@ export default function Home() {
     }
 
     setLoading(true);
+    setAiRecommendations(''); // Clear previous
     try {
-      const response = await fetch('/api/recommend', {
+      const response = await fetch('/api/ai/recommend', {  // ← FIXED PATH
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -90,10 +92,16 @@ export default function Home() {
       });
 
       const data = await response.json();
-      setRecommendations(data.recommendations || []);
-    } catch (error) {
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to get recommendations');
+      }
+
+      setAiRecommendations(data.recommendations); // ← Set text recommendations
+      
+    } catch (error: any) {
       console.error('Error:', error);
-      alert('Failed to get recommendations');
+      alert('Failed to get recommendations: ' + (error.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -225,6 +233,38 @@ export default function Home() {
           </CardContent>
         </Card>
 
+        {/* ← NEW: Display AI Recommendations */}
+        {aiRecommendations && (
+          <Card className="mb-8 border-2 border-purple-200">
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-blue-50">
+              <CardTitle className="flex items-center text-purple-900">
+                <Sparkles className="w-6 h-6 mr-2" />
+                ✨ Your AI-Powered Loan Recommendations
+              </CardTitle>
+              <CardDescription>
+                Personalized suggestions based on your financial profile
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="whitespace-pre-wrap text-gray-800 bg-white p-6 rounded-lg shadow-inner border">
+                {aiRecommendations}
+              </div>
+              <div className="mt-6 flex gap-4">
+                <Button onClick={() => router.push('/products')} className="flex-1">
+                  Browse All Products →
+                </Button>
+                <Button 
+                  onClick={() => setAiRecommendations('')} 
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Clear Recommendations
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Browse All Products */}
         <Card className="mb-8">
           <CardHeader>
@@ -237,71 +277,6 @@ export default function Home() {
             </Button>
           </CardContent>
         </Card>
-
-        {/* Recommendations */}
-        {recommendations.length > 0 && (
-          <div>
-            <h2 className="text-2xl font-bold mb-4">Recommended for You</h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {recommendations.map((loan) => (
-                <Card key={loan.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <div className="flex items-center justify-between mb-2">
-                      {loan.badge && (
-                        <Badge className="bg-purple-600">{loan.badge}</Badge>
-                      )}
-                      <div className="text-right ml-auto">
-                        <div className="text-2xl font-bold text-gray-900">
-                          {loan.interest_rate || loan.rate_apr}%
-                        </div>
-                        <div className="text-xs text-gray-600">APR</div>
-                      </div>
-                    </div>
-                    <CardTitle className="text-lg">{loan.loan_type || loan.product_type}</CardTitle>
-                    <CardDescription>{loan.bank_name}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
-                      <div>
-                        <div className="text-gray-600">Max Amount</div>
-                        <div className="font-semibold">₹{(loan.max_amount / 100000).toFixed(0)}L</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-600">Credit Score</div>
-                        <div className="font-semibold">{loan.min_credit_score}+</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-600">Min Income</div>
-                        <div className="font-semibold">₹{(loan.min_income / 100000).toFixed(1)}L</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-600">Tenure</div>
-                        <div className="font-semibold">{loan.tenure_months}m</div>
-                      </div>
-                    </div>
-
-                    {loan.features && loan.features.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-3">
-                        {loan.features.slice(0, 3).map((feature, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs">{feature}</Badge>
-                        ))}
-                      </div>
-                    )}
-
-                    <Button 
-                      variant="outline" 
-                      className="w-full"
-                      onClick={() => openChat(loan)}
-                    >
-                      <MessageCircle className="w-4 h-4 mr-2" />
-                      Ask About This Product
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
       </main>
 
       {/* Chat Sheet */}
