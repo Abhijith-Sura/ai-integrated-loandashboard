@@ -1,4 +1,4 @@
-# 🏦 ClickPe Loan Dashboard
+# 🏦 AI-Integrated Loan Dashboard
 
 A modern, AI-powered loan comparison and recommendation platform built with Next.js 16, featuring intelligent loan suggestions, real-time chatbot assistance, and comprehensive financial product browsing.
 
@@ -71,8 +71,8 @@ A modern, AI-powered loan comparison and recommendation platform built with Next
 ### Setup Instructions
 
 1. **Clone the repository**
-git clone https://github.com/Abhijith-Sura/clickpe-loan-dashboard.git
-cd clickpe-loan-dashboard
+git clone https://github.com/Abhijith-Sura/AI_integrated_loandashboard.git
+cd AI_integrated_loandashboard
 
 
 

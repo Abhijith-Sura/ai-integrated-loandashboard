@@ -332,7 +332,7 @@ function LoginForm() {
             {isLogin ? 'Welcome Back' : 'Create Account'}
           </CardTitle>
           <CardDescription className="text-center">
-            {isLogin ? 'Log in to access ClickPe Loan Dashboard' : 'Sign up to get started'}
+            {isLogin ? 'Log in to access AI-Integrated Loan Dashboard' : 'Sign up to get started'}
           </CardDescription>
         </CardHeader>
         <CardContent>
