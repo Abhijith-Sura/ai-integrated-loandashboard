@@ -8,7 +8,7 @@ const supabase = createClient(
 );
 
 const chatRequestSchema = z.object({
-  productId: z.string().uuid(),
+  productId: z.string(),
   message: z.string().min(1).max(500),
   userId: z.string().uuid().optional(),
   history: z.array(
@@ -20,7 +20,9 @@ const chatRequestSchema = z.object({
   productData: z.object({
     name: z.string(),
     bank: z.string(),
+    max_amount: z.number(),
     rate_apr: z.number(),
+    calculated_emi_for_max_amount: z.number(),
     min_income: z.number(),
     min_credit_score: z.number(),
     tenure_min_months: z.number(),
@@ -30,6 +32,7 @@ const chatRequestSchema = z.object({
     disbursal_speed: z.string(),
     docs_level: z.string(),
     summary: z.string(),
+    apply_link: z.string(),
   }),
 });
 
@@ -39,18 +42,26 @@ export async function POST(req: NextRequest) {
     const validated = chatRequestSchema.parse(body);
     const { message, productData, history, productId, userId } = validated;
 
-    const systemPrompt = `You are a helpful AI assistant for ClickPe Loan Picks. Answer questions ONLY about this loan product:
+    const systemPrompt = `You are a highly capable "Financial Advisor AI" for FinTech Enterprise. Answer questions ONLY about this loan product:
 Product: ${productData.name}
 Bank: ${productData.bank}
+Max Amount: ₹${(productData.max_amount / 100000).toFixed(1)}L
 APR: ${productData.rate_apr}%
+Calculated EMI for Max Amount (${productData.tenure_max_months} months): ₹${productData.calculated_emi_for_max_amount}/month
 Min Income: ₹${(productData.min_income / 100000).toFixed(1)}L
 Credit Score: ${productData.min_credit_score}+
 Tenure: ${productData.tenure_min_months}-${productData.tenure_max_months} months
 Processing Fee: ${productData.processing_fee_pct}%
 Prepayment: ${productData.prepayment_allowed ? 'Yes' : 'No'}
 Disbursal: ${productData.disbursal_speed}
+Application Link: ${productData.apply_link}
 
-If asked about other products, say "I can only answer about ${productData.name}". Be concise.`;
+INSTRUCTIONS:
+1. If the user asks for estimations (e.g., "What is my EMI?"), confidently use the Calculated EMI above or perform simple proportional math if they ask for half the amount.
+2. CRITICAL: If the user asks where or how to apply for this specific loan, you MUST ONLY provide the exact Application Link above as a clickable markdown link. NEVER suggest applying internally via a dashboard or login page. Example: "**[Apply directly at ${productData.bank}](${productData.apply_link})**".
+3. Provide clickable markdown links for general navigation ONLY if they ask about other platform features: "[View all products](/products)" or "[Dashboard](/dashboard)".
+4. Format your responses using clean Markdown (bolding, bullet points) to make it easy to read.
+5. If asked about entirely unrelated topics, briefly guide them back to this loan or offer to check the [Dashboard](/dashboard).`;
 
     const messages = [
       ...history.map((msg) => ({

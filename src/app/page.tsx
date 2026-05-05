@@ -2,12 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { MessageCircle, TrendingUp, Clock, Shield, Sparkles, LogOut } from 'lucide-react';
-import { ChatSheet } from '@/components/ChatSheet';
+import { ArrowRight, ShieldCheck, Activity, LineChart, Globe } from 'lucide-react';
+import { Header } from '@/components/Header';
 
 interface Loan {
   id: number;
@@ -15,278 +12,165 @@ interface Loan {
   loan_type: string;
   interest_rate: number;
   max_amount: number;
-  min_income: number;
-  min_credit_score: number;
-  processing_fee: number;
-  tenure_months: number;
-  features: string[];
-  badge?: string;
-  product_type?: string;
   rate_apr?: number;
-  tenure_min_months?: number;
-  tenure_max_months?: number;
-  processing_fee_pct?: number;
-  prepayment_allowed?: boolean;
-  disbursal_speed?: string;
-  summary?: string;
 }
 
-export default function Home() {
-  const [mounted, setMounted] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userName, setUserName] = useState('');
-  const [userEmail, setUserEmail] = useState('');
-  const [income, setIncome] = useState('');
-  const [creditScore, setCreditScore] = useState('');
-  const [loanAmount, setLoanAmount] = useState('');
-  const [aiRecommendations, setAiRecommendations] = useState(''); // ← CHANGED: string instead of array
-  const [loading, setLoading] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<Loan | null>(null);
-  const [chatOpen, setChatOpen] = useState(false);
+export default function LandingPage() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  const [liveLoans, setLiveLoans] = useState<Loan[]>([]);
 
   useEffect(() => {
     setMounted(true);
+    // Fetch live market data for the public ticker
+    const fetchTickerData = async () => {
+      try {
+        const response = await fetch('/api/products?limit=5');
+        const data = await response.json();
+        if (data.success) {
+          setLiveLoans(data.products);
+        }
+      } catch (e) {
+        console.error("Failed to fetch public ticker", e);
+      }
+    };
+    fetchTickerData();
   }, []);
 
-  useEffect(() => {
-    if (!mounted) return;
-
-    const token = localStorage.getItem('auth_token');
-    if (!token) {
-      router.push('/login');
-    } else {
-      setIsAuthenticated(true);
-      const name = localStorage.getItem('user_name');
-      const email = localStorage.getItem('user_email');
-      if (name) setUserName(name);
-      if (email) setUserEmail(email);
-    }
-  }, [mounted, router]);
-
-  const handleLogout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user_email');
-    localStorage.removeItem('user_name');
-    router.push('/login');
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount);
   };
 
-  // ← FIXED FUNCTION
-  const getRecommendations = async () => {
-    if (!income || !creditScore || !loanAmount) {
-      alert('Please fill in all fields');
-      return;
-    }
-
-    setLoading(true);
-    setAiRecommendations(''); // Clear previous
-    try {
-      const response = await fetch('/api/ai/recommend', {  // ← FIXED PATH
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          income: parseFloat(income),
-          creditScore: parseInt(creditScore),
-          loanAmount: parseFloat(loanAmount),
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to get recommendations');
-      }
-
-      setAiRecommendations(data.recommendations); // ← Set text recommendations
-      
-    } catch (error: any) {
-      console.error('Error:', error);
-      alert('Failed to get recommendations: ' + (error.message || 'Unknown error'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const openChat = (loan: Loan) => {
-    setSelectedProduct(loan);
-    setChatOpen(true);
-  };
-
-  if (!mounted || !isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+  if (!mounted) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">AI-Integrated Loan Dashboard</h1>
-              <p className="text-sm text-gray-600 mt-1">Welcome back, {userName}!</p>
-            </div>
-            <Button onClick={handleLogout} variant="outline">
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
+    <div className="min-h-screen font-sans bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-150 relative overflow-hidden">
+      
+      {/* Background Image & Overlays */}
+      <div 
+        className="absolute inset-0 z-0 pointer-events-none opacity-20 dark:opacity-40"
+        style={{
+          backgroundImage: "url('/landing-hero-bg.png')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed'
+        }}
+      />
+      
+      <Header />
+
+      <main className="relative z-10 flex flex-col items-center justify-center pt-24 pb-20 px-4 sm:px-6 lg:px-8 text-center max-w-6xl mx-auto">
+        
+        {/* Enterprise Badge */}
+        <div className="inline-flex items-center px-4 py-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400 text-xs font-semibold uppercase tracking-widest mb-10 shadow-[0_0_15px_rgba(37,99,235,0.15)] animate-in fade-in slide-in-from-top-4 duration-700">
+          <Activity className="w-4 h-4 mr-2" />
+          Enterprise Grade Origination
+        </div>
+
+        {/* Hero Section */}
+        <h1 className="text-4xl sm:text-5xl lg:text-5xl font-medium tracking-tight text-slate-900 dark:text-white mb-8 leading-[1.1] animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
+          Real-Time Loan Federation <br className="hidden sm:block" />
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">
+            & AI Risk Assessment
+          </span>
+        </h1>
+        
+        <p className="text-lg text-slate-700 dark:text-slate-300 max-w-3xl mx-auto mb-12 leading-relaxed font-light animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
+          Access live market data, evaluate risk metrics instantly, and connect with federated banking partners through a single, secure, and zero-collision enterprise portal.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-5 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
+          <Button 
+            onClick={() => router.push('/dashboard')}
+            className="h-14 px-10 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-lg font-semibold shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:shadow-[0_0_40px_rgba(37,99,235,0.6)] transition-all duration-300"
+          >
+            Access Dashboard <ArrowRight className="w-5 h-5 ml-2" />
+          </Button>
+          <Button 
+            onClick={() => router.push('/products')}
+            variant="outline"
+            className="h-14 px-10 bg-slate-900/50 border-slate-700 text-slate-200 hover:bg-slate-800 hover:text-white rounded-md text-lg font-semibold backdrop-blur-sm transition-all duration-300"
+          >
+            View Market Ledger
+          </Button>
+        </div>
+
+        {/* Real-Time Market Ticker (Proof of Concept) */}
+        <div className="w-full mt-32 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-500">
+          <div className="flex items-center justify-between mb-6 border-b border-slate-200 dark:border-slate-800/80 pb-4">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-200 flex items-center tracking-wide">
+              <span className="relative flex h-3 w-3 mr-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+              </span>
+              Live Market Rates
+            </h3>
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-mono tracking-wider">LIVE FEDERATION</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+            {liveLoans.length > 0 ? liveLoans.slice(0, 3).map((loan) => (
+              <div key={loan.id} className="bg-white/80 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200 dark:border-slate-800 p-6 rounded-xl shadow-xl dark:shadow-2xl hover:border-blue-500/50 transition-all duration-300 group">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h4 className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{loan.bank_name}</h4>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 font-medium">{loan.loan_type}</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-medium text-transparent bg-clip-text bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400">
+                      {(loan.interest_rate || loan.rate_apr)?.toFixed(2)}%
+                    </div>
+                    <div className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Base APR</div>
+                  </div>
+                </div>
+                <div className="text-sm text-slate-700 dark:text-slate-300 border-t border-slate-100 dark:border-slate-800/80 pt-4 mt-2 flex justify-between items-center">
+                  <span className="text-slate-500">Max Facility</span>
+                  <span className="font-semibold">{formatCurrency(loan.max_amount)}</span>
+                </div>
+              </div>
+            )) : (
+              // Skeleton for public ticker
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="bg-white/80 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200 dark:border-slate-800 p-6 rounded-xl shadow-xl dark:shadow-2xl animate-pulse">
+                  <div className="h-5 w-32 bg-slate-200 dark:bg-slate-800 rounded mb-2"></div>
+                  <div className="h-3 w-20 bg-slate-200 dark:bg-slate-800/80 rounded mb-6"></div>
+                  <div className="h-4 w-full bg-slate-100 dark:bg-slate-800/80 rounded border-t border-slate-100 dark:border-slate-800 pt-4"></div>
+                </div>
+              ))
+            )}
           </div>
         </div>
-      </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Products</CardTitle>
-              <TrendingUp className="w-4 h-4 text-gray-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">150+</div>
-              <p className="text-xs text-gray-600">Loan options available</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Best Rate</CardTitle>
-              <Sparkles className="w-4 h-4 text-gray-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">6.5%</div>
-              <p className="text-xs text-gray-600">Starting APR</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Quick Approval</CardTitle>
-              <Clock className="w-4 h-4 text-gray-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">24hrs</div>
-              <p className="text-xs text-gray-600">Fastest disbursal</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Secure</CardTitle>
-              <Shield className="w-4 h-4 text-gray-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">100%</div>
-              <p className="text-xs text-gray-600">Data protection</p>
-            </CardContent>
-          </Card>
+        {/* Enterprise Value Props */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mt-24 text-left w-full animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-700">
+          <div className="space-y-4 p-6 rounded-2xl bg-white/50 dark:bg-gradient-to-b dark:from-slate-900/40 dark:to-transparent border border-slate-200 dark:border-slate-800/50 shadow-sm dark:shadow-none">
+            <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center mb-6 border border-blue-100 dark:border-blue-500/20 shadow-[0_0_15px_rgba(37,99,235,0.05)] dark:shadow-[0_0_15px_rgba(37,99,235,0.15)]">
+              <LineChart className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h4 className="text-lg font-medium text-slate-900 dark:text-white tracking-tight">Data Integrity</h4>
+            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">Strict formatting and zero-collision architecture for uncompromising data reliability and display perfection.</p>
+          </div>
+          <div className="space-y-4 p-6 rounded-2xl bg-white/50 dark:bg-gradient-to-b dark:from-slate-900/40 dark:to-transparent border border-slate-200 dark:border-slate-800/50 shadow-sm dark:shadow-none">
+            <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center mb-6 border border-blue-100 dark:border-blue-500/20 shadow-[0_0_15px_rgba(37,99,235,0.05)] dark:shadow-[0_0_15px_rgba(37,99,235,0.15)]">
+              <ShieldCheck className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h4 className="text-lg font-medium text-slate-900 dark:text-white tracking-tight">Compliance First</h4>
+            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">Built to handle sensitive financial originations with absolute layout stability and data-flow security.</p>
+          </div>
+          <div className="space-y-4 p-6 rounded-2xl bg-white/50 dark:bg-gradient-to-b dark:from-slate-900/40 dark:to-transparent border border-slate-200 dark:border-slate-800/50 shadow-sm dark:shadow-none">
+            <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center mb-6 border border-blue-100 dark:border-blue-500/20 shadow-[0_0_15px_rgba(37,99,235,0.05)] dark:shadow-[0_0_15px_rgba(37,99,235,0.15)]">
+              <Globe className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h4 className="text-lg font-medium text-slate-900 dark:text-white tracking-tight">Real-Time Simulation</h4>
+            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">Integrated market simulators provide live interest rate fluctuations dynamically mapped to your dashboard.</p>
+          </div>
         </div>
 
-        {/* AI Recommendation Form */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Sparkles className="w-5 h-5 mr-2 text-purple-600" />
-              AI-Powered Loan Recommendations
-            </CardTitle>
-            <CardDescription>
-              Get personalized loan suggestions based on your financial profile
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Annual Income (₹)</label>
-                <Input
-                  type="number"
-                  placeholder="e.g., 500000"
-                  value={income}
-                  onChange={(e) => setIncome(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Credit Score</label>
-                <Input
-                  type="number"
-                  placeholder="e.g., 750"
-                  value={creditScore}
-                  onChange={(e) => setCreditScore(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Desired Loan Amount (₹)</label>
-                <Input
-                  type="number"
-                  placeholder="e.g., 1000000"
-                  value={loanAmount}
-                  onChange={(e) => setLoanAmount(e.target.value)}
-                />
-              </div>
-            </div>
-            <Button onClick={getRecommendations} disabled={loading} className="w-full md:w-auto">
-              {loading ? 'Getting Recommendations...' : 'Get AI Recommendations'}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* ← NEW: Display AI Recommendations */}
-        {aiRecommendations && (
-          <Card className="mb-8 border-2 border-purple-200">
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-blue-50">
-              <CardTitle className="flex items-center text-purple-900">
-                <Sparkles className="w-6 h-6 mr-2" />
-                ✨ Your AI-Powered Loan Recommendations
-              </CardTitle>
-              <CardDescription>
-                Personalized suggestions based on your financial profile
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="whitespace-pre-wrap text-gray-800 bg-white p-6 rounded-lg shadow-inner border">
-                {aiRecommendations}
-              </div>
-              <div className="mt-6 flex gap-4">
-                <Button onClick={() => router.push('/products')} className="flex-1">
-                  Browse All Products →
-                </Button>
-                <Button 
-                  onClick={() => setAiRecommendations('')} 
-                  variant="outline"
-                  className="flex-1"
-                >
-                  Clear Recommendations
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Browse All Products */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Browse All Products</CardTitle>
-            <CardDescription>Explore our complete catalog of loan products</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => router.push('/products')} variant="outline" className="w-full">
-              View All Loan Products →
-            </Button>
-          </CardContent>
-        </Card>
       </main>
-
-      {/* Chat Sheet */}
-      {selectedProduct && (
-        <ChatSheet
-          open={chatOpen}
-          onOpenChange={setChatOpen}
-          product={selectedProduct}
-        />
-      )}
     </div>
   );
 }

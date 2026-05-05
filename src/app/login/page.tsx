@@ -6,6 +6,32 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
+const LayoutWrapper = ({ children, onHome }: { children: React.ReactNode, onHome: () => void }) => (
+  <div className="min-h-screen font-sans text-slate-900 dark:text-slate-100 transition-colors duration-150 relative overflow-hidden flex items-center justify-center p-4">
+    {/* Background Image & Overlays */}
+    <div 
+      className="fixed inset-0 z-0 pointer-events-none"
+      style={{
+        backgroundImage: "url('/fintech-login-bg.png')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed'
+      }}
+    />
+    <div className="fixed inset-0 z-0 bg-white/75 dark:bg-slate-950/85 pointer-events-none transition-colors duration-150" />
+    
+    <div className="absolute top-8 left-8 sm:left-12 z-10">
+      <Button variant="outline" onClick={onHome} className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md shadow-sm border-slate-200/80 dark:border-slate-800/80 hover:bg-slate-50/90 dark:hover:bg-slate-800/90 transition-colors duration-150 text-slate-700 dark:text-slate-300">
+        ← Return Home
+      </Button>
+    </div>
+    
+    <div className="relative z-10 w-full max-w-md bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-2xl p-8 lg:p-10 flex flex-col animate-in fade-in slide-in-from-bottom-8 duration-700">
+      {children}
+    </div>
+  </div>
+);
+
 function LoginForm() {
   const [mounted, setMounted] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
@@ -161,7 +187,7 @@ function LoginForm() {
         localStorage.setItem('user_email', user.email);
         localStorage.setItem('user_name', user.name);
 
-        window.location.href = '/';
+        router.replace('/dashboard');
       } else {
         if (!name) {
           setError('Please enter your name');
@@ -197,23 +223,20 @@ function LoginForm() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <div className="w-8 h-8 border-2 border-slate-300 border-t-slate-800 dark:border-slate-700 dark:border-t-slate-200 rounded-full animate-spin"></div>
       </div>
     );
   }
 
   if (isForgotPassword && isResetWithToken) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold text-center">🔐 Reset Your Password</CardTitle>
-            <CardDescription className="text-center">
-              Enter your new password
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+      <LayoutWrapper onHome={() => router.push('/')}>
+        <div className="mb-8">
+          <h1 className="text-3xl font-medium tracking-tight text-slate-900 dark:text-white mb-2">Reset Password</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Enter your new security credentials.</p>
+        </div>
+        <div className="w-full">
             <form onSubmit={handleResetPasswordWithToken} className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">New Password (min 6 chars)</label>
@@ -224,6 +247,7 @@ function LoginForm() {
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
                   minLength={6}
+                  className="bg-white/70 dark:bg-slate-950/60 border-slate-200/80 dark:border-slate-700/80 focus-visible:ring-blue-500 shadow-inner"
                 />
               </div>
 
@@ -244,34 +268,30 @@ function LoginForm() {
               </Button>
             </form>
 
-            <div className="mt-4 text-center text-sm">
+            <div className="mt-6 text-center text-sm">
               <button
                 type="button"
                 onClick={() => {
                   router.push('/login');
                 }}
-                className="text-blue-600 hover:underline font-semibold"
+                className="text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 font-semibold transition-colors duration-150"
               >
-                Back to Login
+                Return to Sign In
               </button>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+        </div>
+      </LayoutWrapper>
     );
   }
 
   if (isForgotPassword) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold text-center">📧 Forgot Password</CardTitle>
-            <CardDescription className="text-center">
-              Enter your email to receive a password reset link
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+      <LayoutWrapper onHome={() => router.push('/')}>
+        <div className="mb-8">
+          <h1 className="text-3xl font-medium tracking-tight text-slate-900 dark:text-white mb-2">Recover Access</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">We will send a secure reset protocol to your institutional email.</p>
+        </div>
+        <div className="w-full">
             <form onSubmit={handleForgotPasswordRequest} className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Email Address</label>
@@ -281,6 +301,7 @@ function LoginForm() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  className="bg-white/70 dark:bg-slate-950/60 border-slate-200/80 dark:border-slate-700/80 focus-visible:ring-blue-500 shadow-inner"
                 />
               </div>
 
@@ -301,7 +322,7 @@ function LoginForm() {
               </Button>
             </form>
 
-            <div className="mt-4 text-center text-sm">
+            <div className="mt-6 text-center text-sm">
               <button
                 type="button"
                 onClick={() => {
@@ -309,33 +330,32 @@ function LoginForm() {
                   setError('');
                   setSuccess('');
                 }}
-                className="text-blue-600 hover:underline font-semibold"
+                className="text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 font-semibold transition-colors duration-150"
               >
-                Back to Login
+                Return to Sign In
               </button>
             </div>
 
-            <div className="mt-4 p-3 bg-yellow-50 rounded text-xs text-yellow-900 border border-yellow-200">
-              <strong>🔐 Security:</strong> Password reset link will be sent to your email via Supabase and expires in 1 hour.
+            <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-md text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 flex items-start gap-3">
+              <span className="text-lg">🔐</span>
+              <p>Security protocols will dispatch a reset link valid for exactly 1 hour. Ensure you have access to the associated inbox.</p>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+        </div>
+      </LayoutWrapper>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">
-            {isLogin ? 'Welcome Back' : 'Create Account'}
-          </CardTitle>
-          <CardDescription className="text-center">
-            {isLogin ? 'Log in to access AI-Integrated Loan Dashboard' : 'Sign up to get started'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <LayoutWrapper onHome={() => router.push('/')}>
+        <div className="mb-8">
+          <h1 className="text-3xl font-medium tracking-tight text-slate-900 dark:text-white mb-2">
+            {isLogin ? 'Authenticate' : 'Establish Profile'}
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {isLogin ? 'Enter your credentials to access the enterprise portal.' : 'Provision a new institutional identity.'}
+          </p>
+        </div>
+        <div className="w-full">
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div className="space-y-2">
@@ -346,6 +366,7 @@ function LoginForm() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required={!isLogin}
+                  className="bg-white/70 dark:bg-slate-950/60 border-slate-200/80 dark:border-slate-700/80 focus-visible:ring-blue-500 shadow-inner"
                 />
               </div>
             )}
@@ -358,6 +379,7 @@ function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="bg-white/70 dark:bg-slate-950/60 border-slate-200/80 dark:border-slate-700/80 focus-visible:ring-blue-500 shadow-inner"
               />
             </div>
 
@@ -370,6 +392,7 @@ function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
+                className="bg-white/70 dark:bg-slate-950/60 border-slate-200/80 dark:border-slate-700/80 focus-visible:ring-blue-500 shadow-inner"
               />
             </div>
 
@@ -406,7 +429,7 @@ function LoginForm() {
             </Button>
           </form>
 
-          <div className="mt-4 text-center text-sm">
+            <div className="mt-6 text-center text-sm">
             <button
               type="button"
               onClick={() => {
@@ -414,26 +437,21 @@ function LoginForm() {
                 setError('');
                 setSuccess('');
               }}
-              className="text-blue-600 hover:underline font-semibold"
+              className="text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 font-semibold transition-colors duration-150"
             >
-              {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Log in'}
+              {isLogin ? "Request access provisioning" : 'Authenticate existing profile'}
             </button>
           </div>
-
-          <div className="mt-4 p-3 bg-blue-50 rounded text-xs text-blue-900 border border-blue-200">
-            <strong>📌 Note:</strong> First-time users must sign up before logging in.
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </LayoutWrapper>
   );
 }
 
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <div className="w-8 h-8 border-2 border-slate-300 border-t-slate-800 dark:border-slate-700 dark:border-t-slate-200 rounded-full animate-spin"></div>
       </div>
     }>
       <LoginForm />
